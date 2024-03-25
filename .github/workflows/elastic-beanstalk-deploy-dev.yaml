@@ -47,7 +47,7 @@ jobs:
         utcOffset: "+09:00"
 
     - name: Beanstalk Deploy
-      uses: einaregilsson/beanstalk-deploy@v20
+      uses: einaregilsson/beanstalk-deploy@v22
       with:
         aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

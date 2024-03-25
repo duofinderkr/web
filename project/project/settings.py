@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.discord",
+    "ebhealthcheck.apps.EBHealthCheckConfig",
 ]
 
 SITE_ID = 1

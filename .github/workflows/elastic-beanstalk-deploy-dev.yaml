@@ -39,6 +39,10 @@ jobs:
         mkdir -p deploy
         zip -r deploy/deploy.zip . -x .git/\* .github/\* .elasticbeanstalk/\* deploy/\* .gitignore .dockerignore docker-compose.yaml
 
+    - name: Get current time
+      id: current-time
+      run: echo "::set-output name=formattedTime::$(date +'%Y-%m-%d-%H-%M-%S')"
+
     - name: Beanstalk Deploy
       uses: einaregilsson/beanstalk-deploy@v20
       with:

@@ -13,7 +13,7 @@
 ## Development Guide
 
 ```bash
-git clone https://github.com/boostcampaitech6/level2-3-recsys-finalproject-recsys-05.git duofinder
+git clone https://github.com/duofinderkr/web.git duofinder
 cd duofinder/web
 ```
 

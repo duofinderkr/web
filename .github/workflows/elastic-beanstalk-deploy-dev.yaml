@@ -30,9 +30,8 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Copy Elastic Beanstalk Config
-      run: echo "$EB_CONFIG" > .elasticbeanstalk/config.yml
-      env:
-        EB_CONFIG: ${{ secrets.EB_CONFIG }}
+      run: echo "${{ secrets.EB_CONFIG }}" > .elasticbeanstalk/config.yml
+
 
     - name: Deploy to Elastic Beanstalk
       run: |

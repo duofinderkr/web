@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  web:
+    build: .
+    ports:
+      - "80:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_SECRET_ARN=${DATABASE_SECRET_ARN}
+      - RIOT_SECRET_ARN=${RIOT_SECRET_ARN}
+      - DISCORD_SECRET_ARN=${DISCORD_SECRET_ARN}
+      - SECRET_KEY_SECRET_ARN=${SECRET_KEY_SECRET_ARN}
+      - AWS_REGION=ap-northeast-2

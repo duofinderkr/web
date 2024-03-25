@@ -1,0 +1,17 @@
+{% extends "base/base.html" %}
+{% block title %}
+  Home
+{% endblock title %}
+{% block content %}
+  <div class="flex justify-center items-center mt-64">
+    <div class="text-center">
+      <h1 class="text-5xl font-bold mb-4">DUO FINDER</h1>
+      <p class="text-stone-400">당신의 동료를 찾아드립니다.</p>
+      <div class="mt-6">
+        <a href="{{ url('recommend-ai') }}" class="block w-full px-4 py-2 text-center text-white bg-stone-500 rounded-md hover:bg-stone-600 dark:bg-stone-600 dark:hover:bg-stone-700">
+          ✨ AI 듀오 추천 시작하기 ✨
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

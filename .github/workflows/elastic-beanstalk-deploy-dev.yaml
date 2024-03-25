@@ -37,7 +37,7 @@ jobs:
     - name: Generate Deployment Package
       run: |
         mkdir -p deploy
-        zip -r deploy/deploy.zip . -x .git/\* .github/\* .elasticbeanstalk/\* deploy/\* .gitignore .dockerignore docker-compose.yaml
+        zip -r deploy/deploy.zip .
 
     - name: Get current time
       uses: 1466587594/get-current-time@v2

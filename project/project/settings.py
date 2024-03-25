@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "storages",
     "app",
     "users",
     "rest_framework",
@@ -151,11 +152,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = "/static/"
+AWS_STORAGE_BUCKET_NAME = config.s3.bucket_name
+
+STATIC_URL = "https://cdn.duofinder.kr/"
+
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    STATIC_DIR,
 ]
+
+STATICFILES_STORAGE = "storages.backends.s3.S3Storage"
+DEFAULT_FILE_STORAGE = "storages.backends.s3.S3Storage"
+AWS_LOCATION = "static"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

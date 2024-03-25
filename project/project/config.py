@@ -17,6 +17,7 @@ load_dotenv()
 
 _env = Env(os.getenv("ENVIRONMENT", Env.Local))
 
+
 def _get_config(secret_arn: str, key=None):
     client = boto3.client(
         service_name="secretsmanager",
@@ -36,6 +37,8 @@ def _get_allowed_hosts():
         return [
             "dev.duofinder.kr",
             "duofinder.kr",
+            "localhost",
+            "127.0.0.1",
         ]
     else:
         return [
@@ -107,12 +110,36 @@ class SecretKey:
             self.secret_key = _get_config(_secret_arn, "WEB_SECRET_KEY")
 
 
+class S3:
+    def __init__(self, env: Env):
+        if env == Env.Local:
+            self.bucket_name = os.getenv("S3_BUCKET_NAME")
+            self.s3_domain = os.getenv("S3_DOMAIN")
+            self.s3_object_parameters = {
+                "CacheControl": "max-age=86400",  # 1 day
+            }
+        else:
+            self.bucket_name = os.getenv("S3_BUCKET_NAME")
+            self.s3_domain = os.getenv("S3_DOMAIN")
+            self.s3_object_parameters = {
+                "CacheControl": "max-age=86400",  # 1 day
+            }
+            # _secret_arn = os.getenv("S3_SECRET_ARN")
+            #
+            # self.bucket_name = _get_config(_secret_arn, "S3_BUCKET_NAME")
+            # self.s3_domain = _get_config(_secret_arn, "S3_DOMAIN")
+            # self.s3_object_parameters = {
+            #     "CacheControl": "max-age=86400",  # 1 day
+            # }
+
+
 class Config:
     def __init__(self):
         self.Env = _env
         self.db = Database(_env)
         self.riot = Riot(_env)
         self.discord = Discord(_env)
+        self.s3 = S3(_env)
 
         self.Debug = True if _env == Env.Local else False
         self.secret_key = SecretKey(_env).secret_key

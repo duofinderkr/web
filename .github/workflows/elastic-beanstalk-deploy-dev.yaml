@@ -40,8 +40,11 @@ jobs:
         zip -r deploy/deploy.zip . -x .git/\* .github/\* .elasticbeanstalk/\* deploy/\* .gitignore .dockerignore docker-compose.yaml
 
     - name: Get current time
+      uses: 1466587594/get-current-time@v2
       id: current-time
-      run: echo "::set-output name=formattedTime::$(date +'%Y-%m-%d-%H-%M-%S')"
+      with:
+        format: YYYY-MM-DDTHH-mm-ss
+        utcOffset: "+09:00"
 
     - name: Beanstalk Deploy
       uses: einaregilsson/beanstalk-deploy@v20

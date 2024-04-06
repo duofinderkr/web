@@ -1,15 +1,48 @@
 import datetime
+from urllib.parse import urlencode
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.core.handlers.wsgi import WSGIRequest
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from uuid import uuid4
+from allauth.socialaccount.models import SocialAccount, EmailAddress
 
-from app.models import DuoMatch, Summoner
+from app.models import (
+    DuoMatch,
+    DuoMatchFeedback,
+    DuoMatchReport,
+    NoSoloRankException,
+    RiotAccount,
+    RiotSoloRank,
+    RiotSummoner,
+    RiotToken,
+    Summoner,
+)
 from rest_framework.decorators import api_view
 from app.riot_client import get_client
 from app.serializers import SummonerSerializer, LeagueEntrySerializer
 from app.models import LeagueEntry
+from project.config import get_config
 from users.models import AppUser
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+tier_colors = {
+    "Unranked": {"color": "#000000", "bg": "#FFFFFF"},
+    "IRON": {"color": "#3D2E2C", "bg": "#AD9F9B"},
+    "BRONZE": {"color": "#613D35", "bg": "#BFA097"},
+    "SILVER": {"color": "#4F585F", "bg": "#DBE7F1"},
+    "GOLD": {"color": "#84613A", "bg": "#FEECBF"},
+    "PLATIUM": {"color": "#1F7282", "bg": "#ADEBEB"},
+    "EMERALD": {"color": "#065E39", "bg": "#78E9C6"},
+    "DIAMOND": {"color": "#3E74DC", "bg": "#E0E2FC"},
+    "MASTER": {"color": "#8D4C9D", "bg": "#F2C5F2"},
+    "GRANDMASTER": {"color": "#8D4C9D", "bg": "#F2C5F2"},
+    "CHALLENGER": {"color": "#8D4C9D", "bg": "#F2C5F2"},
+}
 
 
 def riot_txt(request: WSGIRequest):
@@ -69,7 +102,17 @@ def get_account_by_summoner_name(request: WSGIRequest):
 
 
 def recommend_ai(request: WSGIRequest):
-    return render(request, "recommend/ai.html", {"user": request.user})
+    user: AppUser = request.user
+
+    return render(
+        request,
+        "recommend/ai.html",
+        {
+            "user": user,
+            "riot_account": user.riot_account,
+            "riot_summoner": user.riot_summoner,
+        },
+    )
 
 
 @login_required
@@ -180,13 +223,154 @@ def privacy_policy(request: WSGIRequest):
     return render(request, "privacy_policy.html")
 
 
+def riot_sign_on(request: WSGIRequest):
+    url = "https://auth.riotgames.com/authorize?"
+
+    query_string = urlencode(
+        {
+            "client_id": get_config().riot.rso_client_id,
+            "redirect_uri": "https://" + request.get_host() + "/accounts/riot/callback",
+            "response_type": "code",
+            "scope": "openid",
+        }
+    )
+
+    return redirect(url + query_string)
+
+
+@transaction.atomic
+def riot_sign_on_callback(request: WSGIRequest):
+    user: AppUser = request.user
+
+    code = request.GET.get("code")
+
+    if not code:
+        return JsonResponse({"error": "code is required"}, status=400)
+
+    riot_token: RiotToken = RiotToken.create(
+        code=code,
+        redirect_uri="https://" + request.get_host() + "/accounts/riot/callback",
+    )
+
+    riot_account = RiotAccount.create(riot_token.access_token)
+
+    riot_summoner: RiotSummoner = RiotSummoner.create(riot_token.access_token)
+
+    user.riot_token = riot_token
+    user.riot_account = riot_account
+    user.riot_summoner = riot_summoner
+    user.save()
+
+    try:
+        riot_solo_rank = RiotSoloRank.create(riot_summoner.id)
+
+        riot_summoner.riot_solo_rank = riot_solo_rank
+        riot_summoner.save()
+    except NoSoloRankException:
+        pass
+    except Exception as e:
+        logger.error(e)
+        return render(
+            request,
+            "users/profile.html",
+            {
+                "user": request.user,
+                "error": "계정 연동에 실패했습니다.",
+            },
+        )
+
+    return redirect("users:profile")
+
+
+@api_view(["POST"])
+@transaction.atomic
+def riot_account_refresh(request: WSGIRequest):
+    user: AppUser = request.user
+
+    try:
+        token: RiotToken = user.riot_token
+        token.refresh()
+    except Exception as e:
+        logger.error(e)
+        return JsonResponse({"error": "전적 갱신에 실패했습니다."}, status=400)
+
+    try:
+        account: RiotAccount = user.riot_account
+        if account.updated_at + datetime.timedelta(minutes=3) > datetime.datetime.now(
+            datetime.timezone.utc
+        ):
+            return JsonResponse(
+                {
+                    "error": f"전적 갱신은 3분에 한 번만 가능합니다. 남은 시간: {180 - (datetime.datetime.now(datetime.timezone.utc) - account.updated_at).seconds}초"
+                },
+                status=400,
+            )
+        account.refresh(token.access_token)
+    except Exception as e:
+        logger.error(e)
+        return JsonResponse({"error": "전적 갱신에 실패했습니다."}, status=400)
+
+    try:
+        summoner: RiotSummoner = user.riot_summoner
+        summoner.refresh(token.access_token)
+    except Exception as e:
+        logger.error(e)
+        return JsonResponse({"error": "전적 갱신에 실패했습니다."}, status=400)
+
+    if RiotSoloRank.objects.filter(riot_summoner=summoner).count() == 0:
+        try:
+            RiotSoloRank.create(summoner.id)
+        except NoSoloRankException:
+            pass
+    else:
+        summoner.riot_solo_rank.refresh()
+
+    return JsonResponse({"message": "전적 갱신에 성공했습니다."})
+
+
 @api_view(["POST"])
 def inference(request: WSGIRequest):
-    me = request.user
+    me: AppUser = request.user
 
-    # Fake User
+    rank_range = {
+        "IRON": ["IRON", "BRONZE", "SILVER"],
+        "BRONZE": ["IRON", "BRONZE", "SILVER"],
+        "SILVER": ["BRONZE", "SILVER", "GOLD"],
+        "GOLD": ["SILVER", "GOLD", "PLATINUM"],
+        "PLATINUM": ["GOLD", "PLATINUM", "EMERALD"],
+        "EMERALD": ["PLATINUM", "EMERALD", "DIAMOND"],
+        "DIAMOND": ["EMERALD", "DIAMOND"],
+    }
 
-    user = AppUser.objects.get(id=2)
+    my_rank = me.riot_summoner.riot_solo_rank.tier
+
+    # 1. 나를 제외한 모든 유저 중에서 랭크가 있는 유저를 찾는다.
+    # 2. 랭크가 있는 유저 중에서 랭크가 비슷한 유저를 찾는다.
+    candidates = (
+        AppUser.objects.filter(riot_summoner__isnull=False)
+        .filter(riot_summoner__riot_solo_rank__isnull=False)
+        .filter(riot_summoner__riot_solo_rank__tier__in=rank_range[my_rank])
+        .exclude(id=me.id)
+    )
+
+    my_match_histories = [
+        duo_match.user2 for duo_match in DuoMatch.objects.filter(user1=me)
+    ]
+
+    my_match_histories += [
+        duo_match.user1 for duo_match in DuoMatch.objects.filter(user2=me)
+    ]
+
+    # 만약 이미 매칭된 유저가 있다면 그 유저는 제외한다.
+    for candidate in candidates:
+        for history in my_match_histories:
+            if candidate == history:
+                candidates = candidates.exclude(id=candidate.id)
+
+    if candidates.count() == 0:
+        return JsonResponse({"error": "현재 매칭할 유저가 없습니다."}, status=400)
+
+    user = me
 
     result = DuoMatch.objects.create(user1=me, user2=user)
     result.save()
@@ -201,6 +385,19 @@ def inference(request: WSGIRequest):
     )
 
 
+@api_view(["POST"])
+def riot_account_disconnect(request: WSGIRequest):
+    user: AppUser = request.user
+
+    user.riot_summoner = None
+    user.riot_account = None
+    user.riot_token = None
+
+    user.save()
+
+    return JsonResponse({"message": "계정 연동 해제에 성공했습니다."})
+
+
 def get_duo_match(request: WSGIRequest):
     duo_match_id = request.GET.get("duo_match_id")
 
@@ -209,18 +406,33 @@ def get_duo_match(request: WSGIRequest):
 
     duo_match = DuoMatch.objects.get(id=duo_match_id)
 
-    summoner2: Summoner = duo_match.user2.summoner
+    summoner2: RiotSummoner = duo_match.user2.riot_summoner
 
-    summoner2_rank = LeagueEntry.objects.get(summoner=summoner2)
+    summoner2_rank = RiotSoloRank.objects.get(riot_summoner=summoner2)
+
+    summoner2_account = RiotAccount.objects.get(puuid=summoner2.puuid)
+
+    my_duo_match_feedback = DuoMatchFeedback.objects.filter(
+        duo_match=duo_match, user=request.user
+    ).first()
+
+    my_duo_match_report_exists = DuoMatchReport.objects.filter(
+        duo_match=duo_match, user=request.user
+    ).exists()
 
     return render(
         request,
         "recommend/duo_match.html",
         {
+            "duo_match_id": duo_match_id,
             "user": request.user,
-            "summoner1": duo_match.user1.summoner,
-            "summoner2": duo_match.user2.summoner,
+            "summoner1": duo_match.user1.riot_summoner,
+            "summoner2": duo_match.user2.riot_summoner,
+            "my_duo_match_feedback": my_duo_match_feedback,
+            "my_duo_match_report_exists": my_duo_match_report_exists,
             "summoner2_rank": summoner2_rank,
+            "summoner2_account": summoner2_account,
+            "tier_color": tier_colors[summoner2_rank.tier],
         },
     )
 
@@ -248,21 +460,27 @@ def get_duo_match_history(request: WSGIRequest):
     me = request.user
     timezone = datetime.timezone(datetime.timedelta(hours=9))
 
+    duo_match_to_feedbacks = {
+        duo_match_feedback.duo_match_id: duo_match_feedback
+        for duo_match_feedback in DuoMatchFeedback.objects.filter(user=me)
+    }
+
     duo_matches = [
         {
             "id": duo_match.id,
-            "target_username": duo_match.user2.summoner.name,
-            "target_profile_icon_id": duo_match.user2.summoner.profile_icon_id,
-            "target_summoner_tier": LeagueEntry.objects.get(
-                summoner=duo_match.user2.summoner
-            ).tier,
-            "target_summoner_rank": LeagueEntry.objects.get(
-                summoner=duo_match.user2.summoner
-            ).rank,
+            "target_username": duo_match.user2.riot_summoner.name,
+            "target_profile_icon_id": duo_match.user2.riot_summoner.profile_icon_id,
+            "target_summoner_tier": duo_match.user2.riot_summoner.riot_solo_rank.tier,
+            "target_summoner_rank": duo_match.user2.riot_summoner.riot_solo_rank.rank,
+            "target_summoner_league_points": duo_match.user2.riot_summoner.riot_solo_rank.league_points,
             "created_at": duo_match.created_at.astimezone(timezone).strftime(
                 "%Y-%m-%d %H:%M:%S"
             ),
             "n_days_ago": _n_days_ago(duo_match.created_at),
+            "feedback": duo_match_to_feedbacks.get(duo_match.id, None),
+            "tier_color": tier_colors[
+                duo_match.user2.riot_summoner.riot_solo_rank.tier
+            ],
         }
         for duo_match in DuoMatch.objects.filter(user1=me).order_by("-created_at")
     ]
@@ -272,3 +490,111 @@ def get_duo_match_history(request: WSGIRequest):
         "recommend/history.html",
         {"user": me, "duo_matches": duo_matches},
     )
+
+
+@login_required
+@transaction.atomic
+def sign_out(request: WSGIRequest):
+    user: AppUser = request.user
+
+    delete_id = uuid4().hex
+
+    user.riot_summoner = None
+    user.riot_account = None
+    user.riot_token = None
+    user.email = delete_id + "@is-deleted-duofinder.kr"
+
+    user.username = delete_id + "@is-deleted-duofinder.kr"
+
+    SocialAccount.objects.filter(user=user).delete()
+    EmailAddress.objects.filter(user=user).delete()
+
+    user.is_active = False
+
+    user.save()
+
+    return redirect("home")
+
+
+@login_required
+@api_view(["POST"])
+@transaction.atomic
+def duo_match_feedback(request: WSGIRequest):
+    me = request.user
+    duo_match_id = request.data["duo_match_id"]
+    feedback: str = request.data["feedback"]
+
+    if feedback.lower() not in ["good", "bad"]:
+        return JsonResponse({"error": "feedback must be GOOD or BAD"}, status=400)
+
+    if not duo_match_id:
+        return JsonResponse({"error": "duo_match_id is required"}, status=400)
+
+    if not feedback:
+        return JsonResponse({"error": "feedback is required"}, status=400)
+
+    if DuoMatchFeedback.objects.filter(duo_match_id=duo_match_id, user=me).exists():
+        duo_match_feedback = DuoMatchFeedback.objects.get(
+            duo_match_id=duo_match_id, user=me
+        )
+        duo_match_feedback.rating = feedback.lower()
+        duo_match_feedback.save()
+    else:
+        DuoMatchFeedback.objects.create(
+            duo_match=DuoMatch.objects.get(id=duo_match_id),
+            user=me,
+            rating=feedback.lower(),
+        )
+
+    return JsonResponse({"message": "피드백을 제출했습니다."})
+
+
+@login_required
+def duo_match_report(request: WSGIRequest):
+    me = request.user
+    duo_match_id = request.GET.get("duo_match_id")
+
+    if not duo_match_id:
+        return redirect(request.META.get("HTTP_REFERER", "recommend:history"))
+
+    duo_match = DuoMatch.objects.get(id=duo_match_id)
+
+    if DuoMatchReport.objects.filter(duo_match=duo_match, user=me).exists():
+        return redirect(request.META.get("HTTP_REFERER", "recommend:history"))
+
+    if duo_match.user1 != me:
+        return redirect(request.META.get("HTTP_REFERER", "recommend:history"))
+
+    return render(
+        request, "recommend/duo_match_report.html", {"duo_match_id": duo_match_id}
+    )
+
+
+@login_required
+@api_view(["POST"])
+def duo_match_report_submit(request: WSGIRequest):
+    me = request.user
+
+    duo_match_id = request.data["duo_match_id"]
+    reason = request.data["reason"]
+
+    if not duo_match_id:
+        return JsonResponse({"error": "duo_match_id is required"}, status=400)
+
+    duo_match = DuoMatch.objects.get(id=duo_match_id)
+
+    if duo_match.user1 != me:
+        return JsonResponse(
+            {"error": "You are not allowed to report this duo match"}, status=400
+        )
+
+    if not reason:
+        return JsonResponse({"error": "report is required"}, status=400)
+
+    DuoMatchReport.objects.create(
+        duo_match=DuoMatch.objects.get(id=duo_match_id),
+        user=me,
+        reason=reason,
+    )
+
+    return JsonResponse({"message": "신고가 접수되었습니다."})

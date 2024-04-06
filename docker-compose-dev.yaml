@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  duofinder-postgres:
+    image: postgres:16.2
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: duofinder
+      POSTGRES_PASSWORD: duofinder
+      POSTGRES_DB: duofinder
+    volumes:
+      - duofinder-postgres:/var/lib/postgresql/data
+
+  duofinder-minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    volumes:
+      - duofinder-minio:/data
+    command: 
+      server /data --console-address ":9001"
+
+volumes:
+  duofinder-postgres:
+    external: true
+  duofinder-minio:
+    external: true
+  

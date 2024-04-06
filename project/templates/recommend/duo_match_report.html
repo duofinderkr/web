@@ -1,0 +1,57 @@
+{% extends "base/base.html" %}
+{% block title %}
+  | AI Recommend - Report
+{% endblock title %}
+{% block content %}
+  <div class="flex justify-center items-center mt-64 flex-col">
+    <div class="flex-col w-1/2 p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+      <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">신고하기</h5>
+      <div class="mb-4">
+        <label for="reason" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+          보내주신 신고 내용은 빠르게 검토 후 조치하겠습니다.
+        </label>
+        <textarea name="reason" id="reason" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-stone-500 focus:border-stone-500 sm:text-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"></textarea>
+
+        <div class="mt-4 flex justify-end">
+            <button 
+              onclick="report()"
+              class="w-fit flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-stone-600 hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-stone-500">
+            🚨 신고하기
+            </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
+{% block js %}
+  <script>
+    const report = () => {
+      const reason = document.getElementById('reason').value;
+
+      if (reason === '') {
+        alert('신고 내용을 입력해주세요.');
+        return;
+      }
+
+      fetch(`{{ url('duo-match-report-submit') }}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ 
+          reason: reason,
+          duo_match_id: "{{ duo_match_id }}",
+        })
+      })
+      .then(res => {
+        if (res.status === 200) {
+          alert('신고가 접수되었습니다.');
+          window.location.href = '/';
+        }
+      })
+      .catch(err => console.error(err));
+    }
+
+  </script>
+{% endblock js %}

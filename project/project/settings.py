@@ -22,7 +22,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 config = get_config()
 
-
 if config.Env == Env.Local:
     DEBUG = True
     SECRET_KEY = "django-insecure-oebj&y31_9&1-f^3cdx!h$_#jya*n8-&adi-t5%b(27p@e*t0s"
@@ -153,9 +152,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-AWS_STORAGE_BUCKET_NAME = config.s3.bucket_name
+if config.Env == Env.Local:
+    AWS_S3_ENDPOINT_URL = config.s3.s3_domain
+    STATIC_URL = "localhost:9000/"
+else:
+    STATIC_URL = "https://cdn.duofinder.kr/"
 
-STATIC_URL = "https://cdn.duofinder.kr/"
+AWS_STORAGE_BUCKET_NAME = config.s3.bucket_name
 
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
@@ -181,8 +184,6 @@ CSRF_TRUSTED_ORIGINS = ["https://*.duofinder.kr"]
 env = environ.Env(
     DEBUG=(bool, False),
 )
-
-environ.Env.read_env(BASE_DIR / ".env")
 
 AUTH_USER_MODEL = "users.AppUser"
 

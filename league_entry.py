@@ -50,9 +50,6 @@ class LeagueEntryCrawler:
         league_entries = await self._fetch(url + f"&page={page}")
 
         while league_entries:
-            print(
-                f"Fetching {tier} {division} page {page}... entries: {len(league_entries)}"
-            )
             summoners = [
                 (
                     league_entry["summonerId"],
@@ -132,7 +129,6 @@ class LeagueEntryCrawler:
 
             while response.status == 429:
                 retry_after = response.headers.get("Retry-After")
-                print(f"Retrying after {retry_after} seconds")
 
                 await asyncio.sleep(int(retry_after))
                 response = await self.session.get(url)

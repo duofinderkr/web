@@ -37,11 +37,10 @@ def _get_allowed_hosts():
         return [
             "dev.duofinder.kr",
             "duofinder.kr",
-            "localhost",
-            "127.0.0.1",
         ]
     else:
         return [
+            "local.duofinder.kr",
             "localhost",
             "127.0.0.1",
         ]
@@ -53,7 +52,7 @@ class Database:
             self.name = os.getenv("DATABASE_NAME", "duofinder")
             self.user = os.getenv("DATABASE_USER", "duofinder")
             self.password = os.getenv("DATABASE_PASSWORD", "duofinder")
-            self.host = os.getenv("DATABASE_HOST", "localhost")
+            self.host = os.getenv("DATABASE_HOST", "duofinder-postgres")
             self.port = os.getenv("DATABASE_PORT", "5432")
         else:
             _secret_arn = os.getenv("DATABASE_SECRET_ARN")
@@ -79,10 +78,14 @@ class Riot:
     def __init__(self, env: Env):
         if env == Env.Local:
             self.api_key = os.getenv("RIOT_API_KEY")
+            self.rso_client_id = os.getenv("RIOT_RSO_CLIENT_ID")
+            self.rso_client_secret = os.getenv("RIOT_RSO_CLIENT_SECRET")
         else:
             _secret_arn = os.getenv("RIOT_SECRET_ARN")
 
             self.api_key = _get_config(_secret_arn, "RIOT_API_KEY")
+            self.rso_client_id = _get_config(_secret_arn, "RIOT_RSO_CLIENT_ID")
+            self.rso_client_secret = _get_config(_secret_arn, "RIOT_RSO_CLIENT_SECRET")
 
 
 class Discord:
@@ -112,25 +115,11 @@ class SecretKey:
 
 class S3:
     def __init__(self, env: Env):
-        if env == Env.Local:
-            self.bucket_name = os.getenv("S3_BUCKET_NAME")
-            self.s3_domain = os.getenv("S3_DOMAIN")
-            self.s3_object_parameters = {
-                "CacheControl": "max-age=86400",  # 1 day
-            }
-        else:
-            self.bucket_name = os.getenv("S3_BUCKET_NAME")
-            self.s3_domain = os.getenv("S3_DOMAIN")
-            self.s3_object_parameters = {
-                "CacheControl": "max-age=86400",  # 1 day
-            }
-            # _secret_arn = os.getenv("S3_SECRET_ARN")
-            #
-            # self.bucket_name = _get_config(_secret_arn, "S3_BUCKET_NAME")
-            # self.s3_domain = _get_config(_secret_arn, "S3_DOMAIN")
-            # self.s3_object_parameters = {
-            #     "CacheControl": "max-age=86400",  # 1 day
-            # }
+        self.bucket_name = os.getenv("S3_BUCKET_NAME")
+        self.s3_domain = os.getenv("S3_DOMAIN")
+        self.s3_object_parameters = {
+            "CacheControl": "max-age=86400",  # 1 day
+        }
 
 
 class Config:

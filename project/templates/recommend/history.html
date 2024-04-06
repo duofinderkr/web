@@ -33,12 +33,35 @@
               </div>
               <p class="ml-2 text-gray-600 dark:text-gray-300">{{ duo_match["n_days_ago"] }}</p>
             </div>
-            <button class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded transition-colors text-white bg-white border-blue-500 hover:bg-blue-500 hover:text-white lg:mt-0">
+            {% if duo_match["feedback"] and duo_match["feedback"].rating == "good" %}
+            <button
+              id="good"
+              class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded text-blue-500 bg-blue-500 border-blue-500 lg:mt-0">
               👍
             </button>
-            <button class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded transition-colors text-white bg-white border-red-500 hover:bg-red-500 hover:text-white lg:mt-0">
+            {% else %}
+            <button
+              id="good"
+              onclick="feedback(`{{ duo_match['id'] }}`, 'good')"
+              class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded transition-colors text-white bg-white border-blue-500 hover:bg-blue-500 hover:text-white lg:mt-0">
+              👍
+            </button>
+            {% endif %}
+
+            {% if duo_match["feedback"] and duo_match["feedback"].rating == "bad" %}
+            <button 
+              id="bad"
+              class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded text-orange-500 bg-orange-500 border-orange-500 lg:mt-0">
               👎
             </button>
+            {% else %}
+            <button 
+              id="bad"
+              onclick="feedback(`{{ duo_match['id'] }}`, 'bad')"
+              class="mr-1 inline-flex items-center justify-center px-4 py-2 leading-none border rounded transition-colors text-white bg-white border-orange-600 hover:bg-orange-600 hover:text-white lg:mt-0">
+              👎
+            </button>
+            {% endif %}
             <a href="{{ url('get-duo-match') }}?duo_match_id={{ duo_match['id'] }}">
               <button class="inline-flex items-center justify-center px-4 py-2 leading-none border rounded transition-colors text-stone-500 bg-white border-stone-500 hover:bg-stone-500 hover:text-white lg:mt-0">
                 🔍 상세
@@ -53,6 +76,23 @@
 {% endblock content %}
 {% block js %}
   <script>
-    
+    const feedback = (duo_match_id, feedback) => {
+      fetch(`{{ url('duo-match-feedback') }}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+          feedback: feedback,
+          duo_match_id: duo_match_id,
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        alert("피드백이 등록되었습니다.")
+        location.reload()
+      })
+    }
   </script>
 {% endblock js %}

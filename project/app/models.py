@@ -394,9 +394,7 @@ class RiotSoloRank(models.Model):
 
         client = get_client()
 
-        response = client.get_league_entries_by_summoner_id(
-            "rCqXdNGDnMdHiOKr3RO_H6TqlOGKOqy1dZi_RmOSNsy_nTE"
-        )
+        response = client.get_league_entries_by_summoner_id(summoner_id)
 
         if response.status_code != 200:
             logger.error(response.json())

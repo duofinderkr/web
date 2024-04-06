@@ -39,11 +39,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Rename docker-compose.prod.yml to docker-compose.yml
-      run: mv docker-compose.prod.yml docker-compose.yml
+    - name: Rename docker-compose-prod.yaml to docker-compose.yaml
+      run: mv docker-compose-prod.yaml docker-compose.yaml
 
-    - name: Remove docker-compose.dev.yml
-      run: rm -f docker-compose.dev.yml
+    - name: Remove docker-compose-dev.yaml
+      run: rm -f docker-compose-dev.yaml
 
     - name: Copy Elastic Beanstalk Config
       run: |

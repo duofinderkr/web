@@ -120,7 +120,7 @@ class S3:
         self.s3_object_parameters = {
             "CacheControl": "max-age=86400",  # 1 day
         }
-        
+
 
 class Sentry:
     def __init__(self, env: Env):

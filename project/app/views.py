@@ -104,7 +104,7 @@ def get_account_by_summoner_name(request: WSGIRequest):
 def recommend_ai(request: WSGIRequest):
     user: AppUser = request.user
 
-    if not request.user.is_anonymous:
+    if request.user.is_anonymous:
         return render(
             request,
             "recommend/ai.html",

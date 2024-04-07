@@ -104,6 +104,17 @@ def get_account_by_summoner_name(request: WSGIRequest):
 def recommend_ai(request: WSGIRequest):
     user: AppUser = request.user
 
+    if not user.riot_account:
+        return render(
+            request,
+            "recommend/ai.html",
+            {
+                "user": user,
+                "riot_account": None,
+                "riot_summoner": None,
+            },
+        )
+
     return render(
         request,
         "recommend/ai.html",

@@ -370,7 +370,7 @@ class RiotSoloRank(models.Model):
                 break
 
         if solo_rank is None:
-            raise Exception("No solo rank")
+            raise NoSoloRankException("No solo rank")
 
         self.league_id = solo_rank["leagueId"]
         self.queue_type = solo_rank["queueType"]

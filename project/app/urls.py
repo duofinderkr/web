@@ -8,7 +8,6 @@ from .views import (
     duo_match_report,
     duo_match_report_submit,
     index,
-    get_account_by_summoner_name,
     recommend_ai,
     recommend_result,
     riot_sign_on_callback,
@@ -45,11 +44,6 @@ urlpatterns = [
         "",
         index,
         name="home",
-    ),
-    path(
-        "summoner/",
-        get_account_by_summoner_name,
-        name="summoner",
     ),
     path(
         "recommend-ai/",

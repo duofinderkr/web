@@ -37,6 +37,18 @@ else:
 ALLOWED_HOSTS = config.allowed_hosts
 
 
+# Sentry
+
+if config.Env == Env.Prod:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=config.sentry.dsn,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
+
 # Application definition
 
 INSTALLED_APPS = [

@@ -25,6 +25,7 @@ from .views import (
     sign_out,
 )
 
+
 urlpatterns = [
     # static
     path("riot.txt", riot_txt),

@@ -122,6 +122,16 @@ class S3:
         }
 
 
+class Sentry:
+    def __init__(self, env: Env):
+        if env == Env.Local:
+            self.dsn = os.getenv("SENTRY_DSN")
+        else:
+            _secret_arn = os.getenv("SENTRY_SECRET_ARN")
+
+            self.dsn = _get_config(_secret_arn, "SENTRY_DSN")
+
+
 class Config:
     def __init__(self):
         self.Env = _env
@@ -129,6 +139,7 @@ class Config:
         self.riot = Riot(_env)
         self.discord = Discord(_env)
         self.s3 = S3(_env)
+        self.sentry = Sentry(_env)
 
         self.Debug = True if _env == Env.Local else False
         self.secret_key = SecretKey(_env).secret_key
